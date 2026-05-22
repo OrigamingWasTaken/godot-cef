@@ -63,10 +63,12 @@ impl CefTextureRuntime {
             enable_accelerated_osr,
             background_color,
             popup_policy,
+            preload_script,
+            preload_script_path,
             software_target_texture,
             log_prefix,
         } = config;
-        if !self.runtime_enabled || self.app.state.is_some() {
+        if !self.runtime_enabled || self.app.state.is_some() || !self.app.can_create_browser() {
             return;
         }
         if let Err(e) = cef_init::cef_retain() {
@@ -82,6 +84,8 @@ impl CefTextureRuntime {
             enable_accelerated_osr,
             background_color,
             popup_policy,
+            preload_script: preload_script.to_string(),
+            preload_script_path: preload_script_path.to_string(),
             software_target_texture,
             log_prefix,
         };
