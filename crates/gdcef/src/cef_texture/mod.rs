@@ -10,9 +10,9 @@ use cef::{self, ImplBrowserHost, ImplDragData, do_message_loop_work};
 use godot::classes::notify::ControlNotification;
 use godot::classes::texture_rect::ExpandMode;
 use godot::classes::{
-    ITextureRect, ImageTexture, InputEvent, InputEventKey, InputEventMagnifyGesture,
-    InputEventMouseButton, InputEventMouseMotion, InputEventPanGesture, InputEventScreenDrag,
-    InputEventScreenTouch, LineEdit, TextureRect,
+    CanvasItemMaterial, ITextureRect, ImageTexture, InputEvent, InputEventKey,
+    InputEventMagnifyGesture, InputEventMouseButton, InputEventMouseMotion, InputEventPanGesture,
+    InputEventScreenDrag, InputEventScreenTouch, LineEdit, TextureRect,
 };
 use godot::prelude::*;
 
@@ -181,6 +181,12 @@ impl CefTexture {
         position - self.base().get_global_position()
     }
 
+    fn make_browser_material() -> Gd<godot::classes::Material> {
+        let mut material = CanvasItemMaterial::new_gd();
+        material.set_blend_mode(godot::classes::canvas_item_material::BlendMode::PREMULT_ALPHA);
+        material.upcast()
+    }
+
     #[signal]
     fn ipc_message(message: GString);
 
@@ -270,6 +276,7 @@ impl CefTexture {
         self.with_app_mut(|app| app.mark_cef_retained());
 
         self.base_mut().set_expand_mode(ExpandMode::IGNORE_SIZE);
+        self.base_mut().set_material(&Self::make_browser_material());
         // Must explicitly enable processing when using on_notification instead of fn process()
         self.base_mut().set_process(true);
         // Enable focus so we receive FOCUS_ENTER/EXIT notifications and can forward to CEF.

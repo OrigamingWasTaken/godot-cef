@@ -154,6 +154,7 @@ impl CefTexture {
                 if self.popup_overlay.is_none() {
                     let mut overlay = TextureRect::new_alloc();
                     overlay.set_expand_mode(ExpandMode::IGNORE_SIZE);
+                    overlay.set_material(&Self::make_browser_material());
                     overlay.set_mouse_filter(MouseFilter::IGNORE);
                     let overlay_node: Gd<godot::classes::Node> = overlay.clone().upcast();
                     self.base_mut().add_child(&overlay_node);
