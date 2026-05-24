@@ -342,7 +342,7 @@ dependencies = [
 
 [[package]]
 name = "cef_app"
-version = "1.15.0"
+version = "1.15.1"
 dependencies = [
  "cef",
  "ciborium",
@@ -759,7 +759,7 @@ dependencies = [
 
 [[package]]
 name = "gdcef"
-version = "1.15.0"
+version = "1.15.1"
 dependencies = [
  "adblock",
  "ash",
@@ -784,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "gdcef-benches"
-version = "1.15.0"
+version = "1.15.1"
 dependencies = [
  "criterion",
  "software_render",
@@ -792,7 +792,7 @@ dependencies = [
 
 [[package]]
 name = "gdcef_helper"
-version = "1.15.0"
+version = "1.15.1"
 dependencies = [
  "cef",
  "cef-dll-sys",
@@ -2072,7 +2072,7 @@ dependencies = [
 
 [[package]]
 name = "software_render"
-version = "1.15.0"
+version = "1.15.1"
 
 [[package]]
 name = "spirv"
@@ -2917,7 +2917,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "1.15.0"
+version = "1.15.1"
 dependencies = [
  "clap",
  "plist",
