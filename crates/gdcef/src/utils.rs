@@ -4,6 +4,11 @@ use godot::classes::Os;
 use godot::{classes::DisplayServer, obj::Singleton};
 use process_path::get_dylib_path;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
+use std::sync::OnceLock;
+
+#[cfg(target_os = "linux")]
+static LINUX_DESKTOP_SCALE_CANDIDATE: OnceLock<Option<f32>> = OnceLock::new();
 
 /// Returns the display scale factor for the primary screen.
 ///
@@ -26,10 +31,165 @@ pub fn get_display_scale_factor() -> f32 {
         }
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
+    {
+        let screen_scale = display_server.screen_get_scale();
+        if screen_scale <= 1.0
+            && env_or_empty("XDG_SESSION_TYPE").eq_ignore_ascii_case("wayland")
+            && let Some(candidate) = linux_desktop_scale_candidate()
+            && candidate > 1.0
+        {
+            candidate
+        } else {
+            screen_scale
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         display_server.screen_get_scale()
     }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_desktop_scale_candidate() -> Option<f32> {
+    *LINUX_DESKTOP_SCALE_CANDIDATE.get_or_init(|| {
+        let scales = gnome_monitor_scales();
+        match scales.primary_scale {
+            Some(scale) if scale.is_finite() && scale > 1.0 => Some(scale),
+            Some(_) => None,
+            None => scales
+                .all_scales
+                .into_iter()
+                .filter(|scale| scale.is_finite() && *scale > 1.0)
+                .max_by(|a, b| a.total_cmp(b)),
+        }
+    })
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Default)]
+struct GnomeMonitorScales {
+    primary_scale: Option<f32>,
+    all_scales: Vec<f32>,
+}
+
+#[cfg(target_os = "linux")]
+fn gnome_monitor_scales() -> GnomeMonitorScales {
+    let scales = gnome_monitors_xml_scales();
+    let primary_scale = scales
+        .logical_monitors
+        .iter()
+        .find(|monitor| monitor.primary)
+        .and_then(|monitor| monitor.scale);
+    let all_scales = scales
+        .logical_monitors
+        .into_iter()
+        .filter_map(|monitor| monitor.scale)
+        .collect::<Vec<_>>();
+    GnomeMonitorScales {
+        primary_scale,
+        all_scales,
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Default)]
+struct GnomeMonitorsXml {
+    logical_monitors: Vec<GnomeLogicalMonitor>,
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Default)]
+struct GnomeLogicalMonitor {
+    primary: bool,
+    scale: Option<f32>,
+}
+
+#[cfg(target_os = "linux")]
+enum MonitorXmlText {
+    Primary,
+    Scale,
+}
+
+#[cfg(target_os = "linux")]
+fn gnome_monitors_xml_scales() -> GnomeMonitorsXml {
+    use quick_xml::Reader;
+    use quick_xml::events::Event;
+
+    let Some(config_home) = linux_config_home() else {
+        return GnomeMonitorsXml::default();
+    };
+    let path = config_home.join("monitors.xml");
+    let Ok(contents) = std::fs::read_to_string(path) else {
+        return GnomeMonitorsXml::default();
+    };
+    let mut reader = Reader::from_str(&contents);
+    reader.config_mut().trim_text(true);
+
+    let mut logical_monitors = Vec::new();
+    let mut current_monitor: Option<GnomeLogicalMonitor> = None;
+    let mut text_target: Option<MonitorXmlText> = None;
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(element)) if element.name().as_ref() == b"logicalmonitor" => {
+                current_monitor = Some(GnomeLogicalMonitor::default());
+            }
+            Ok(Event::End(element)) if element.name().as_ref() == b"logicalmonitor" => {
+                if let Some(monitor) = current_monitor.take() {
+                    logical_monitors.push(monitor);
+                }
+                text_target = None;
+            }
+            Ok(Event::Start(element)) if current_monitor.is_some() => {
+                text_target = match element.name().as_ref() {
+                    b"primary" => Some(MonitorXmlText::Primary),
+                    b"scale" => Some(MonitorXmlText::Scale),
+                    _ => None,
+                };
+            }
+            Ok(Event::End(element)) if matches!(element.name().as_ref(), b"primary" | b"scale") => {
+                text_target = None;
+            }
+            Ok(Event::Text(text)) => {
+                if let Some(monitor) = current_monitor.as_mut()
+                    && let Some(value) = text.decode().ok()
+                {
+                    match text_target {
+                        Some(MonitorXmlText::Primary) => {
+                            let normalized = value.trim();
+                            monitor.primary =
+                                normalized == "yes" || normalized == "true" || normalized == "1";
+                        }
+                        Some(MonitorXmlText::Scale) => {
+                            if let Ok(scale) = value.parse::<f32>() {
+                                monitor.scale = Some(scale);
+                            }
+                        }
+                        None => {}
+                    }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => return GnomeMonitorsXml::default(),
+            _ => {}
+        }
+    }
+
+    GnomeMonitorsXml { logical_monitors }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_config_home() -> Option<PathBuf> {
+    std::env::var_os("XDG_CONFIG_HOME")
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+}
+
+#[cfg(target_os = "linux")]
+fn env_or_empty(name: &str) -> String {
+    std::env::var(name).unwrap_or_default()
 }
 
 fn get_dylib_path_checked() -> CefResult<PathBuf> {
