@@ -3,15 +3,10 @@
 
 [tools]
 # Nightly is required by retour-rs for feature(unboxed_closures, tuple_trait).
-rust = { version = "nightly", components = "rustfmt,clippy", targets = "aarch64-linux-android,x86_64-linux-android" }
-java = "temurin-21"
-gradle = "8.14.3"
-kotlin = "2.2.21"
-android-sdk = "20.0"
+rust = { version = "nightly", components = "rustfmt,clippy" }
 node = "24"
 pnpm = "10.29.3"
 "cargo:export-cef-dir" = "148.1.0+147.0.14"
-"cargo:cargo-ndk" = "latest"
 
 [env]
 # Keep this in sync with the resolved cef / cef-dll-sys version in Cargo.lock,
@@ -26,6 +21,10 @@ run = [
   "sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0' 'ndk;28.2.13676358'",
 ]
 
+[tasks."android:sdk".tools]
+java = "temurin-21"
+android-sdk = "20.0"
+
 [tasks."android:targets"]
 description = "Install Rust targets used by Android builds"
 run = "rustup target add $ANDROID_RUST_TARGETS"
@@ -34,6 +33,12 @@ run = "rustup target add $ANDROID_RUST_TARGETS"
 description = "Build the experimental Android WebView Kotlin bridge"
 depends = ["android:sdk"]
 run = "gradle -p android :godot-cef-webview:assembleDebug"
+
+[tasks."android:kotlin".tools]
+java = "temurin-21"
+gradle = "8.14.3"
+kotlin = "2.2.21"
+android-sdk = "20.0"
 
 [tasks."android:rust"]
 description = "Check the gdcef crate for Android Rust targets"
@@ -49,6 +54,10 @@ depends = ["android:sdk", "android:targets"]
 run = [
   "cargo ndk --target arm64-v8a --target x86_64 --platform 29 -- build -p gdcef --release",
 ]
+
+[tasks."android:build-rust".tools]
+android-sdk = "20.0"
+"cargo:cargo-ndk" = "latest"
 
 [tasks."android:check"]
 description = "Check Android Rust targets and Kotlin bridge"
