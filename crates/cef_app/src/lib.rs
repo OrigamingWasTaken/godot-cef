@@ -74,6 +74,14 @@ wrap_app! {
                 );
             }
 
+            #[cfg(target_os = "macos")]
+            {
+                command_line.append_switch_with_value(
+                    Some(&"use-angle".into()),
+                    Some(&"metal".into()),
+                );
+            }
+
             // Only enable remote debugging in debug builds or when running from the editor
             // for security purposes. In production builds, this should be disabled.
             if self.app.enable_remote_debugging() {
