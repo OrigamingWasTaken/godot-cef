@@ -19,8 +19,8 @@ use crate::accelerated_osr::vulkan_common::{
     impl_vulkan_common_methods, submit_vulkan_copy_async,
 };
 
-/// DRM format modifier indicating invalid/linear modifier
 const DRM_FORMAT_MOD_INVALID: u64 = 0x00ffffffffffffff;
+const DRM_FORMAT_MOD_LINEAR: u64 = 0x0;
 
 pub struct PendingLinuxCopy {
     inode: u64,
@@ -654,8 +654,14 @@ impl VulkanTextureImporter {
         // Set up DRM format modifier info if we have a valid modifier
         let use_drm_modifier = params.modifier != DRM_FORMAT_MOD_INVALID;
 
+        let effective_modifier = if use_drm_modifier {
+            params.modifier
+        } else {
+            DRM_FORMAT_MOD_LINEAR
+        };
+
         let mut drm_modifier_info = vk::ImageDrmFormatModifierExplicitCreateInfoEXT::default()
-            .drm_format_modifier(params.modifier)
+            .drm_format_modifier(effective_modifier)
             .plane_layouts(&plane_layouts);
 
         let tiling = if use_drm_modifier {
@@ -664,7 +670,7 @@ impl VulkanTextureImporter {
             vk::ImageTiling::LINEAR
         };
 
-        self.probe_external_image_support(params, tiling)?;
+        self.probe_external_image_support(params, tiling, effective_modifier)?;
 
         let mut image_info = vk::ImageCreateInfo::default()
             .push_next(&mut external_memory_info)
@@ -722,6 +728,7 @@ impl VulkanTextureImporter {
         &self,
         params: &DmaBufImportParams,
         tiling: vk::ImageTiling,
+        effective_modifier: u64,
     ) -> Result<(), String> {
         let Some(get_image_format_properties2) = self.get_physical_device_image_format_properties2
         else {
@@ -735,7 +742,7 @@ impl VulkanTextureImporter {
             .handle_type(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
 
         let mut modifier_info = vk::PhysicalDeviceImageDrmFormatModifierInfoEXT::default()
-            .drm_format_modifier(params.modifier)
+            .drm_format_modifier(effective_modifier)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
         let mut format_info = vk::PhysicalDeviceImageFormatInfo2::default()
@@ -766,7 +773,7 @@ impl VulkanTextureImporter {
                 result,
                 params.format,
                 tiling,
-                params.modifier,
+                effective_modifier,
                 vk::ImageUsageFlags::TRANSFER_SRC
             ));
         }
