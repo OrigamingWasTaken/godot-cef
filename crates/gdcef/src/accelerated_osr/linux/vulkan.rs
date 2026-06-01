@@ -664,11 +664,7 @@ impl VulkanTextureImporter {
             .drm_format_modifier(effective_modifier)
             .plane_layouts(&plane_layouts);
 
-        let tiling = if use_drm_modifier {
-            vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT
-        } else {
-            vk::ImageTiling::LINEAR
-        };
+        let tiling = vk::ImageTiling::DRM_FORMAT_MODIFIER_EXT;
 
         self.probe_external_image_support(params, tiling, effective_modifier)?;
 
@@ -689,10 +685,7 @@ impl VulkanTextureImporter {
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .initial_layout(vk::ImageLayout::UNDEFINED);
 
-        // Only add DRM modifier info if we're using DRM tiling
-        if use_drm_modifier {
-            image_info = image_info.push_next(&mut drm_modifier_info);
-        }
+        image_info = image_info.push_next(&mut drm_modifier_info);
 
         let mut image = vk::Image::null();
         let result =
